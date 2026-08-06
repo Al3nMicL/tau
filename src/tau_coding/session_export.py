@@ -164,6 +164,7 @@ def _export_theme_css(theme: TuiTheme) -> str:
             f"      --line: {theme.border};",
             f"      --line-strong: {theme.prompt_border};",
             f"      --accent: {theme.accent};",
+            f"      --accent-text: {theme.highlight_text};",
             f"      --accent-soft: {theme.highlight_background};",
             f"      --danger: {theme.error};",
             f"      --code-bg: {theme.markdown_code_block_background};",
@@ -369,7 +370,7 @@ def render_session_html(
       background: var(--surface);
       border: 1px solid var(--line);
       border-bottom: 0;
-      border-radius: 6px 6px 0 0;
+      border-radius: 0;
       cursor: pointer;
       font-family: var(--mono);
       font-size: 0.68rem;
@@ -427,7 +428,7 @@ def render_session_html(
       color: var(--muted);
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 0;
       font-size: 0.76rem;
       font-weight: 500;
       transition: color .15s, border-color .15s, background .15s;
@@ -445,11 +446,11 @@ def render_session_html(
       transition: background .15s;
     }}
     .chip input:checked + .chip-label {{
-      color: var(--accent);
+      color: var(--accent-text);
       background: var(--accent-soft);
       border-color: var(--accent);
     }}
-    .chip input:checked + .chip-label::before {{ background: var(--accent); }}
+    .chip input:checked + .chip-label::before {{ background: var(--accent-text); }}
     .chip input:focus-visible + .chip-label {{
       outline: 2px solid var(--accent);
       outline-offset: 2px;
@@ -460,7 +461,7 @@ def render_session_html(
       font-size: 0.66rem;
       font-variant-numeric: tabular-nums;
     }}
-    .chip input:checked + .chip-label .chip-count {{ background: var(--surface); }}
+    .chip input:checked + .chip-label .chip-count {{ background: var(--accent-soft); }}
     .filter-spacer {{ flex: 1 1 auto; }}
     .jsonl-download {{
       display: inline-flex;
@@ -499,10 +500,11 @@ def render_session_html(
       transition: color .15s, border-color .15s, background .15s;
     }}
     .expand-toggle:hover {{
-      color: var(--bright);
+      color: var(--accent-text);
       background: var(--accent-soft);
       border-color: var(--accent);
     }}
+
     main {{
       display: grid;
       grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
@@ -601,7 +603,10 @@ def render_session_html(
       transition: transform .15s;
     }}
     details.entry[open] > .entry-summary::before {{ transform: rotate(45deg); }}
-    .entry-summary:hover {{ background: var(--accent-soft); }}
+    .entry-summary:hover {{
+      background: var(--accent-soft);
+      color: var(--accent-text);
+    }}
     .entry-heading {{
       display: flex;
       align-items: baseline;

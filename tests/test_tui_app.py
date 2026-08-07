@@ -3022,6 +3022,8 @@ def test_tau_light_theme_uses_light_chat_backgrounds() -> None:
     assert theme.screen_background == "#ffffff"
     assert theme.transcript_background == "#ffffff"
     assert theme.prompt_text == "#111827"
+    assert theme.markdown_heading == theme.accent
+    assert theme.markdown_bullet == theme.accent
     assert theme.syntax_theme == "ansi_light"
     assert theme.role_styles["user"].body == f"#111827 on {theme.prompt_background}"
     assert theme.role_styles["assistant"].body == "#111827"

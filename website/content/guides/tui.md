@@ -140,7 +140,8 @@ when you want to reduce what is sent to the model.
   any custom themes you have installed. Each theme uses one shared selection
   palette for prompt autocomplete and modal lists such as `/resume`. In
   `tau-dark`, the aqua selection color is also the global accent used for
-  headings, prompt activity, and other emphasized UI. See
+  headings, prompt activity, and other emphasized UI. `tau-light` uses a deep
+  teal accent for headings and list markers against its white background. See
   [Themes]({{< relref "./themes.md" >}}).
 
 ## The sidebar

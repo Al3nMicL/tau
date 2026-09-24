@@ -69,7 +69,7 @@ counts, while the session-column header shows the selected project's full path.
 Its shell opens immediately, then the current project and other project indexes
 load in the background. Press Left to
 select the project column, Up/Down to choose a project, and Right to return to
-its sessions. Enter resumes the selected session. Delete archives the
+its sessions. Enter resumes the selected session. Ctrl+Enter archives the
 highlighted session, or the whole project when the project column is active.
 Choose the Archived tab to review hidden sessions and projects; Enter restores
 the highlighted session, or every session in the highlighted project. Restored

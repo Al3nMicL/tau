@@ -37,8 +37,9 @@ the session column. Its shell opens immediately, then the current project and
 other project indexes load in the background. Press
 **Left** to move to the project column, use **Up/Down** to choose another
 project, then press **Right** to return to its sessions. Press **Enter** (or
-click) to resume one. Press **Delete** to archive the highlighted session. When
-the project column is active, **Delete** archives that whole project. Choose
+click) to resume one. Press **Ctrl+Enter** to archive the highlighted session.
+When the project column is active, **Ctrl+Enter** archives that whole project.
+Choose
 the **Archived** tab above the picker to review archived projects and sessions;
 press **Enter** on an archived session to restore it, or on an archived project
 to restore all of its sessions. Restored items return to the **Active** tab.

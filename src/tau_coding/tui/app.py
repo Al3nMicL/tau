@@ -1272,8 +1272,8 @@ class SessionPickerSearchInput(Input):
         return cast(SessionPickerScreen, self.screen)
 
     async def _on_key(self, event: Key) -> None:
-        """Route Delete before Textual's default input editing consumes it."""
-        if event.key == "delete" and isinstance(self.screen, SessionPickerScreen):
+        """Route the archive shortcut before Textual's default input handling."""
+        if event.key == "ctrl+enter" and isinstance(self.screen, SessionPickerScreen):
             event.stop()
             event.prevent_default()
             self.screen.action_archive_cursor()
@@ -1297,6 +1297,10 @@ class SessionPickerSearchInput(Input):
                 self.screen.action_focus_projects()
             else:
                 self.screen.action_focus_sessions()
+        elif event.key == "ctrl+enter" and isinstance(self.screen, SessionPickerScreen):
+            event.stop()
+            event.prevent_default()
+            self.screen.action_archive_cursor()
         elif event.key == "escape":
             event.stop()
             event.prevent_default()
@@ -1629,7 +1633,7 @@ class SessionPickerScreen(ModalScreen[str | None]):
         Binding("left", "focus_projects", "Projects", show=False),
         Binding("right", "focus_sessions", "Sessions", show=False),
         Binding("enter", "select_cursor", "Select", show=False),
-        Binding("delete", "archive_cursor", "Archive", show=False),
+        Binding("ctrl+enter", "archive_cursor", "Archive", show=False, priority=True),
     ]
 
     CSS = """
@@ -2086,12 +2090,13 @@ class SessionPickerScreen(ModalScreen[str | None]):
             text = "Left selects project - Enter unarchives - Escape closes"
         elif self.active_column == "projects":
             text = (
-                "Up/Down selects project - Right opens sessions - Delete archives - Escape closes"
+                "Up/Down selects project - Right opens sessions - "
+                "Ctrl+Enter archives - Escape closes"
             )
         else:
             text = (
                 "Left selects project - Up/Down navigates - Enter resumes - "
-                "Delete archives - Escape closes"
+                "Ctrl+Enter archives - Escape closes"
             )
         self.query_one("#session-picker-help", Static).update(text)
 

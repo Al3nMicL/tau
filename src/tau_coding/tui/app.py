@@ -1266,6 +1266,7 @@ class SessionPickerSearchInput(Input):
         Binding("escape", "cancel", "Cancel", show=False, priority=True),
         Binding("up", "cursor_up", "Up", show=False, priority=True),
         Binding("down", "cursor_down", "Down", show=False, priority=True),
+        Binding("f2", "show_archived", "Archived", show=False, priority=True),
     ]
 
     def _picker(self) -> SessionPickerScreen:
@@ -1273,10 +1274,13 @@ class SessionPickerSearchInput(Input):
 
     async def _on_key(self, event: Key) -> None:
         """Route the archive shortcut before Textual's default input handling."""
-        if event.key == "ctrl+enter" and isinstance(self.screen, SessionPickerScreen):
+        if event.key in {"ctrl+enter", "f2"} and isinstance(self.screen, SessionPickerScreen):
             event.stop()
             event.prevent_default()
-            self.screen.action_archive_cursor()
+            if event.key == "f2":
+                self.screen.action_show_archived()
+            else:
+                self.screen.action_archive_cursor()
             return
         await super()._on_key(event)
 
@@ -1634,6 +1638,7 @@ class SessionPickerScreen(ModalScreen[str | None]):
         Binding("right", "focus_sessions", "Sessions", show=False),
         Binding("enter", "select_cursor", "Select", show=False),
         Binding("ctrl+enter", "archive_cursor", "Archive", show=False, priority=True),
+        Binding("f2", "show_archived", "Archived", show=False, priority=True),
     ]
 
     CSS = """
@@ -1851,7 +1856,7 @@ class SessionPickerScreen(ModalScreen[str | None]):
         self._set_archive_view(False)
 
     def action_show_archived(self) -> None:
-        self._set_archive_view(True)
+        self._set_archive_view(not self.showing_archived)
 
     def _set_archive_view(self, show_archived: bool) -> None:
         if self.showing_archived == show_archived:
@@ -2085,18 +2090,18 @@ class SessionPickerScreen(ModalScreen[str | None]):
         elif not self.visible_records and self.active_column == "sessions":
             text = "No matching sessions - Left selects a project - Escape closes"
         elif self.showing_archived and self.active_column == "projects":
-            text = "Up/Down selects project - Enter unarchives - Escape closes"
+            text = "Up/Down selects project - Enter unarchives - F2 shows active - Escape closes"
         elif self.showing_archived:
-            text = "Left selects project - Enter unarchives - Escape closes"
+            text = "Left selects project - Enter unarchives - F2 shows active - Escape closes"
         elif self.active_column == "projects":
             text = (
                 "Up/Down selects project - Right opens sessions - "
-                "Ctrl+Enter archives - Escape closes"
+                "Ctrl+Enter archives - F2 shows archived - Escape closes"
             )
         else:
             text = (
                 "Left selects project - Up/Down navigates - Enter resumes - "
-                "Ctrl+Enter archives - Escape closes"
+                "Ctrl+Enter archives - F2 shows archived - Escape closes"
             )
         self.query_one("#session-picker-help", Static).update(text)
 

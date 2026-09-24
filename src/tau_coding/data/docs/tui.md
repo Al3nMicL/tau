@@ -71,7 +71,8 @@ load in the background. Press Left to
 select the project column, Up/Down to choose a project, and Right to return to
 its sessions. Enter resumes the selected session. Ctrl+Enter archives the
 highlighted session, or the whole project when the project column is active.
-Choose the Archived tab to review hidden sessions and projects; Enter restores
+Choose the Archived tab to review hidden sessions and projects; F2 opens that
+tab. Enter restores
 the highlighted session, or every session in the highlighted project. Restored
 items appear in the Active tab. Archiving and restoring never delete session
 files or project directories. Search filters names and models within the

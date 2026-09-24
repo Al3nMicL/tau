@@ -7149,7 +7149,7 @@ async def test_tui_app_session_picker_archived_tab_restores_session_and_project(
         await pilot.press("ctrl+r")
         await pilot.pause()
         assert isinstance(app.screen, SessionPickerScreen)
-        await pilot.click("#session-picker-archived-tab")
+        await pilot.press("f2")
         assert app.screen.showing_archived is True
         assert app.screen.query_one("#session-picker-list", OptionList).option_count == 1
 

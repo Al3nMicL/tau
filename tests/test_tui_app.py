@@ -7063,10 +7063,15 @@ async def test_tui_app_session_picker_archives_selected_session() -> None:
     async with app.run_test() as pilot:
         await pilot.press("ctrl+r")
         assert isinstance(app.screen, SessionPickerScreen)
+        search = app.screen.query_one("#session-picker-search", Input)
+        assert search.has_focus
+        search.value = "session"
+        await pilot.pause()
         await pilot.press("delete")
         await pilot.pause()
 
         assert manager.archived_session_ids == ["session-1"]
+        assert search.value == "session"
         assert app.screen.query_one("#session-picker-list", OptionList).option_count == 0
 
 

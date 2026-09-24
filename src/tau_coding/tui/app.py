@@ -1271,6 +1271,15 @@ class SessionPickerSearchInput(Input):
     def _picker(self) -> SessionPickerScreen:
         return cast(SessionPickerScreen, self.screen)
 
+    async def _on_key(self, event: Key) -> None:
+        """Route Delete before Textual's default input editing consumes it."""
+        if event.key == "delete" and isinstance(self.screen, SessionPickerScreen):
+            event.stop()
+            event.prevent_default()
+            self.screen.action_archive_cursor()
+            return
+        await super()._on_key(event)
+
     def on_key(self, event: Key) -> None:
         """Route picker control keys before the input edits its text."""
         if event.key == "up":
@@ -1288,10 +1297,6 @@ class SessionPickerSearchInput(Input):
                 self.screen.action_focus_projects()
             else:
                 self.screen.action_focus_sessions()
-        elif event.key == "delete" and isinstance(self.screen, SessionPickerScreen):
-            event.stop()
-            event.prevent_default()
-            self.screen.action_archive_cursor()
         elif event.key == "escape":
             event.stop()
             event.prevent_default()

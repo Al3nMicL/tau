@@ -37,7 +37,10 @@ the session column. Its shell opens immediately, then the current project and
 other project indexes load in the background. Press
 **Left** to move to the project column, use **Up/Down** to choose another
 project, then press **Right** to return to its sessions. Press **Enter** (or
-click) to resume one.
+click) to resume one. Press **Delete** to archive the highlighted session. When
+the project column is active, **Delete** archives that whole project. Archived
+items disappear from the picker immediately; their session files and project
+directories are not deleted.
 
 The search field filters session names and models within the selected project.
 

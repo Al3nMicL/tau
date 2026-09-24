@@ -69,8 +69,10 @@ counts, while the session-column header shows the selected project's full path.
 Its shell opens immediately, then the current project and other project indexes
 load in the background. Press Left to
 select the project column, Up/Down to choose a project, and Right to return to
-its sessions. Enter resumes the selected session. Search filters names and
-models within the selected project.
+its sessions. Enter resumes the selected session. Delete archives the
+highlighted session, or the whole project when the project column is active.
+Archiving hides the item without deleting session files or project directories.
+Search filters names and models within the selected project.
 
 ## `/local`
 

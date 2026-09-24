@@ -7045,6 +7045,68 @@ async def test_tui_app_session_picker_resumes_selected_session() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui_app_session_picker_archives_selected_session() -> None:
+    session = FakeSession()
+    record = CodingSessionRecord(
+        id="session-1",
+        path=Path("/tmp/session-1.jsonl"),
+        cwd=Path("/workspace/project"),
+        model="fake-model",
+        title="Session",
+        created_at=1.0,
+        updated_at=2.0,
+    )
+    manager = _FakeSessionManager([record])
+    session.session_manager = manager
+    app = TauTuiApp(session)
+
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+r")
+        assert isinstance(app.screen, SessionPickerScreen)
+        await pilot.press("delete")
+        await pilot.pause()
+
+        assert manager.archived_session_ids == ["session-1"]
+        assert app.screen.query_one("#session-picker-list", OptionList).option_count == 0
+
+
+@pytest.mark.anyio
+async def test_tui_app_session_picker_archives_selected_project() -> None:
+    session = FakeSession()
+    first = CodingSessionRecord(
+        id="session-1",
+        path=Path("/tmp/session-1.jsonl"),
+        cwd=Path("/workspace/first"),
+        model="fake-model",
+        title="First",
+        created_at=1.0,
+        updated_at=3.0,
+    )
+    second = CodingSessionRecord(
+        id="session-2",
+        path=Path("/tmp/session-2.jsonl"),
+        cwd=Path("/workspace/second"),
+        model="other-model",
+        title="Second",
+        created_at=1.0,
+        updated_at=2.0,
+    )
+    manager = _FakeSessionManager([first, second])
+    session.session_manager = manager
+    app = TauTuiApp(session)
+
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+r")
+        assert isinstance(app.screen, SessionPickerScreen)
+        await pilot.press("left", "down", "delete")
+        await pilot.pause()
+
+        assert manager.archived_project_cwds == [first.cwd]
+        project_options = app.screen.query_one("#session-picker-project-list", OptionList)
+        assert project_options.option_count == 2
+
+
+@pytest.mark.anyio
 async def test_tui_app_session_picker_shows_human_readable_session_metadata() -> None:
     updated_at = datetime(2026, 6, 19, 14, 30).timestamp()
     session = FakeSession()
@@ -11219,10 +11281,27 @@ async def test_run_tui_app_ignores_uncredentialed_provider_when_matching_resume_
 class _FakeSessionManager:
     def __init__(self, records: list[CodingSessionRecord]) -> None:
         self._records = records
+        self.archived_session_ids: list[str] = []
+        self.archived_project_cwds: list[Path] = []
 
     def list_sessions(self, cwd: Path | None = None) -> list[CodingSessionRecord]:
         del cwd
         return self._records
+
+    def archive_session(self, session_id: str) -> bool:
+        self.archived_session_ids.append(session_id)
+        before = len(self._records)
+        self._records = [record for record in self._records if record.id != session_id]
+        return len(self._records) != before
+
+    def archive_project(self, cwd: Path) -> bool:
+        resolved = Path(cwd).resolve()
+        self.archived_project_cwds.append(Path(cwd))
+        before = len(self._records)
+        self._records = [
+            record for record in self._records if Path(record.cwd).resolve() != resolved
+        ]
+        return len(self._records) != before
 
 
 # --- component seam pilot tests ---------------------------------------------

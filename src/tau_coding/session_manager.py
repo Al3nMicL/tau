@@ -156,6 +156,42 @@ class SessionManager:
         records = self.list_sessions(cwd)
         return records[0] if records else None
 
+    def archive_session(self, session_id: str) -> bool:
+        """Remove a session from resume indexes without touching its transcript."""
+        matches = [record for record in self._read_all_records() if record.id == session_id]
+        if not matches:
+            return False
+        for record in matches:
+            self._remove(record)
+            legacy_path = self.index_path
+            if legacy_path.exists():
+                self._remove_from_index(legacy_path, session_id)
+        return True
+
+    def archive_project(self, cwd: Path) -> bool:
+        """Remove a project's sessions from resume indexes without touching files."""
+        resolved_cwd = cwd.resolve()
+        records = [
+            record for record in self._read_all_records() if record.cwd.resolve() == resolved_cwd
+        ]
+        if not records:
+            return False
+        project_path = self.project_index_path(resolved_cwd)
+        project_records = [
+            record
+            for record in self._read_index(project_path)
+            if record.cwd.resolve() != resolved_cwd
+        ]
+        self._write_index(project_path, project_records)
+        if self.index_path.exists():
+            legacy_records = [
+                record
+                for record in self._read_index(self.index_path)
+                if record.cwd.resolve() != resolved_cwd
+            ]
+            self._write_index(self.index_path, legacy_records)
+        return True
+
     def create_session(
         self,
         *,
@@ -369,8 +405,10 @@ class SessionManager:
         self._write_index(path, records)
 
     def _remove(self, record: CodingSessionRecord) -> None:
-        path = self.project_index_path(record.cwd)
-        records = [item for item in self._read_index(path) if item.id != record.id]
+        self._remove_from_index(self.project_index_path(record.cwd), record.id)
+
+    def _remove_from_index(self, path: Path, session_id: str) -> None:
+        records = [item for item in self._read_index(path) if item.id != session_id]
         self._write_index(path, records)
 
 

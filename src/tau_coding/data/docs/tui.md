@@ -71,8 +71,11 @@ load in the background. Press Left to
 select the project column, Up/Down to choose a project, and Right to return to
 its sessions. Enter resumes the selected session. Delete archives the
 highlighted session, or the whole project when the project column is active.
-Archiving hides the item without deleting session files or project directories.
-Search filters names and models within the selected project.
+Choose the Archived tab to review hidden sessions and projects; Enter restores
+the highlighted session, or every session in the highlighted project. Restored
+items appear in the Active tab. Archiving and restoring never delete session
+files or project directories. Search filters names and models within the
+selected project.
 
 ## `/local`
 

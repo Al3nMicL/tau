@@ -1635,6 +1635,21 @@ class SessionPickerScreen(ModalScreen[str | None]):
         max-height: 85%;
     }
 
+    #session-picker-tabs {
+        height: 3;
+    }
+
+    #session-picker-tabs Button {
+        width: 1fr;
+        border: none;
+    }
+
+    #session-picker-tabs Button.-active {
+        background: $tau-highlight-background;
+        color: $tau-highlight-text;
+        text-style: bold;
+    }
+
     #session-picker-columns {
         height: auto;
         border: tall $tau-border;
@@ -1683,6 +1698,7 @@ class SessionPickerScreen(ModalScreen[str | None]):
         self,
         records: Sequence[SessionCompletionRecord],
         *,
+        archived_records: Sequence[SessionCompletionRecord] = (),
         local_cwd: Path,
         theme: TuiTheme,
         loading_other_projects: bool = False,
@@ -1690,6 +1706,8 @@ class SessionPickerScreen(ModalScreen[str | None]):
     ) -> None:
         super().__init__()
         self.records = tuple(records)
+        self.archived_records = tuple(archived_records)
+        self.showing_archived = False
         self.local_cwd = local_cwd.resolve()
         self.theme = theme
         self.search_value = ""
@@ -1706,6 +1724,9 @@ class SessionPickerScreen(ModalScreen[str | None]):
         """Compose project and session columns under one search field."""
         with Vertical(id="session-picker"):
             yield Static("Sessions", id="session-picker-title")
+            with Horizontal(id="session-picker-tabs"):
+                yield Button("Active", id="session-picker-active-tab")
+                yield Button("Archived", id="session-picker-archived-tab")
             yield SessionPickerSearchInput(
                 placeholder="Search sessions in selected project",
                 id="session-picker-search",
@@ -1732,9 +1753,16 @@ class SessionPickerScreen(ModalScreen[str | None]):
     def on_mount(self) -> None:
         """Start in the current project's recent-session column."""
         self.query_one("#session-picker-search", Input).focus()
+        self._refresh_tabs()
         self._refresh_project_list()
         self._refresh_session_list()
         self._update_help()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "session-picker-active-tab":
+            self._set_archive_view(False)
+        elif event.button.id == "session-picker-archived-tab":
+            self._set_archive_view(True)
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Filter sessions in the selected project."""
@@ -1780,9 +1808,15 @@ class SessionPickerScreen(ModalScreen[str | None]):
         if event.option_list.id == "session-picker-project-list":
             self.selected_project_index = event.option_index
             self._refresh_session_list()
-            self.action_focus_sessions()
+            if self.showing_archived:
+                self.action_unarchive_cursor()
+            else:
+                self.action_focus_sessions()
             return
-        self._select_visible_record()
+        if self.showing_archived:
+            self.action_unarchive_cursor()
+        else:
+            self._select_visible_record()
 
     def action_cursor_up(self) -> None:
         self._active_list().action_cursor_up()
@@ -1797,40 +1831,114 @@ class SessionPickerScreen(ModalScreen[str | None]):
         self._set_active_column("sessions")
 
     def action_select_cursor(self) -> None:
-        if self.active_column == "projects":
+        if self.showing_archived:
+            self.action_unarchive_cursor()
+        elif self.active_column == "projects":
             self.action_focus_sessions()
         else:
             self._select_visible_record()
 
+    def action_show_active(self) -> None:
+        self._set_archive_view(False)
+
+    def action_show_archived(self) -> None:
+        self._set_archive_view(True)
+
+    def _set_archive_view(self, show_archived: bool) -> None:
+        if self.showing_archived == show_archived:
+            return
+        selected_cwd = self.project_cwds[self.selected_project_index] if self.project_cwds else None
+        self.showing_archived = show_archived
+        self.records_by_project = self._group_records_by_project()
+        self.project_cwds = tuple(self.records_by_project)
+        if selected_cwd in self.project_cwds:
+            self.selected_project_index = self.project_cwds.index(selected_cwd)
+        else:
+            self.selected_project_index = 0
+        self._refresh_tabs()
+        self._refresh_project_list()
+        self._refresh_session_list()
+
     def action_archive_cursor(self) -> None:
-        """Ask the application to archive the highlighted session or project."""
+        """Archive or unarchive the highlighted session or project."""
         app = cast(TauTuiApp, self.app)
         if not self.project_cwds:
             return
         if self.active_column == "projects":
             cwd = self.project_cwds[self.selected_project_index]
-            app.run_worker(app._archive_session_project(cwd, self), exclusive=False)
+            worker = (
+                app._unarchive_session_project(cwd, self)
+                if self.showing_archived
+                else app._archive_session_project(cwd, self)
+            )
+            app.run_worker(worker, exclusive=False)
             return
         index = self.query_one("#session-picker-list", OptionList).highlighted
         if index is not None and index < len(self.visible_records):
             record = self.visible_records[index]
-            app.run_worker(app._archive_session_record(record, self), exclusive=False)
+            worker = (
+                app._unarchive_session_record(record, self)
+                if self.showing_archived
+                else app._archive_session_record(record, self)
+            )
+            app.run_worker(worker, exclusive=False)
+
+    def action_unarchive_cursor(self) -> None:
+        self.action_archive_cursor()
 
     async def _remove_records(self, cwd: Path, session_id: str | None = None) -> None:
-        """Remove archived metadata from the open picker after persistence succeeds."""
+        """Move newly archived metadata out of the active picker."""
         if self.app.screen is not self:
             return
         resolved_cwd = Path(cwd).resolve()
-        self.records = tuple(
-            record
-            for record in self.records
-            if Path(record.cwd).resolve() != resolved_cwd
-            or (session_id is not None and record.id != session_id)
-        )
-        if session_id is None or not any(
-            Path(record.cwd).resolve() == resolved_cwd for record in self.records
-        ):
+        if session_id is None:
+            moved = tuple(
+                record for record in self.records if Path(record.cwd).resolve() == resolved_cwd
+            )
+            self.records = tuple(
+                record for record in self.records if Path(record.cwd).resolve() != resolved_cwd
+            )
+            self.archived_records = (*self.archived_records, *moved)
             self.hidden_cwds.add(resolved_cwd)
+        else:
+            record = self._record_by_id(session_id)
+            self.records = tuple(item for item in self.records if item.id != session_id)
+            self.archived_records = (*self.archived_records, record)
+            if not any(Path(item.cwd).resolve() == resolved_cwd for item in self.records):
+                self.hidden_cwds.add(resolved_cwd)
+        self._rebuild_visible_records()
+
+    async def _restore_records(self, cwd: Path, session_id: str | None = None) -> None:
+        """Move restored metadata from the archived picker into the active list."""
+        if self.app.screen is not self:
+            return
+        resolved_cwd = Path(cwd).resolve()
+        if session_id is None:
+            restored = tuple(
+                record
+                for record in self.archived_records
+                if Path(record.cwd).resolve() == resolved_cwd
+            )
+            self.records = (*self.records, *restored)
+            self.archived_records = tuple(
+                record
+                for record in self.archived_records
+                if Path(record.cwd).resolve() != resolved_cwd
+            )
+        else:
+            self.records = (*self.records, self._record_by_id(session_id))
+            self.archived_records = tuple(
+                record for record in self.archived_records if record.id != session_id
+            )
+        self.hidden_cwds.discard(resolved_cwd)
+        self._rebuild_visible_records()
+
+    def _record_by_id(self, session_id: str) -> SessionCompletionRecord:
+        return next(
+            record for record in (*self.records, *self.archived_records) if record.id == session_id
+        )
+
+    def _rebuild_visible_records(self) -> None:
         self.records_by_project = self._group_records_by_project()
         self.project_cwds = tuple(self.records_by_project)
         if self.project_cwds:
@@ -1849,6 +1957,7 @@ class SessionPickerScreen(ModalScreen[str | None]):
         self,
         records: Sequence[SessionCompletionRecord],
         *,
+        archived_records: Sequence[SessionCompletionRecord] | None = None,
         loading_other_projects: bool = False,
     ) -> None:
         """Replace records after background loading while preserving navigation."""
@@ -1861,6 +1970,8 @@ class SessionPickerScreen(ModalScreen[str | None]):
             selected_session_id = self.visible_records[session_list.highlighted].id
 
         self.records = tuple(records)
+        if archived_records is not None:
+            self.archived_records = tuple(archived_records)
         self.records_by_project = self._group_records_by_project()
         self.project_cwds = tuple(self.records_by_project)
         try:
@@ -1907,16 +2018,26 @@ class SessionPickerScreen(ModalScreen[str | None]):
     def _group_records_by_project(
         self,
     ) -> dict[Path, tuple[SessionCompletionRecord, ...]]:
-        """Group records once so picker refreshes stay linear in history size."""
-        grouped: dict[Path, list[SessionCompletionRecord]] = (
-            {} if self.local_cwd in self.hidden_cwds else {self.local_cwd: []}
-        )
-        for record in self.records:
+        """Group the selected tab's records once for linear picker refreshes."""
+        source = self.archived_records if self.showing_archived else self.records
+        grouped: dict[Path, list[SessionCompletionRecord]] = {self.local_cwd: []}
+        for record in source:
             cwd = Path(record.cwd).resolve()
-            if cwd in self.hidden_cwds:
+            if not self.showing_archived and cwd in self.hidden_cwds:
                 continue
             grouped.setdefault(cwd, []).append(record)
         return {cwd: tuple(records) for cwd, records in grouped.items()}
+
+    def _refresh_tabs(self) -> None:
+        active = self.query_one("#session-picker-active-tab", Button)
+        archived = self.query_one("#session-picker-archived-tab", Button)
+        active.set_class(not self.showing_archived, "-active")
+        archived.set_class(self.showing_archived, "-active")
+        self.query_one("#session-picker-search", Input).placeholder = (
+            "Search archived sessions in selected project"
+            if self.showing_archived
+            else "Search sessions in selected project"
+        )
 
     def _refresh_project_list(self) -> None:
         project_list = self.query_one("#session-picker-project-list", OptionList)
@@ -1929,13 +2050,14 @@ class SessionPickerScreen(ModalScreen[str | None]):
         project_list.highlighted = self.selected_project_index if self.project_cwds else None
 
     def _refresh_session_list(self) -> None:
+        label = "Archived sessions" if self.showing_archived else "Recent sessions"
         if not self.project_cwds:
             self.visible_records = ()
-            self.query_one("#session-picker-session-title", Static).update("Recent sessions")
+            self.query_one("#session-picker-session-title", Static).update(label)
         else:
             selected_cwd = self.project_cwds[self.selected_project_index]
             self.query_one("#session-picker-session-title", Static).update(
-                f"Recent sessions — {selected_cwd}"
+                f"{label} — {selected_cwd}"
             )
             project_records = self.records_by_project[selected_cwd]
             self.visible_records = _filter_session_records(project_records, self.search_value)
@@ -1953,6 +2075,10 @@ class SessionPickerScreen(ModalScreen[str | None]):
             text = "No active sessions or projects - Escape closes"
         elif not self.visible_records and self.active_column == "sessions":
             text = "No matching sessions - Left selects a project - Escape closes"
+        elif self.showing_archived and self.active_column == "projects":
+            text = "Up/Down selects project - Enter unarchives - Escape closes"
+        elif self.showing_archived:
+            text = "Left selects project - Enter unarchives - Escape closes"
         elif self.active_column == "projects":
             text = (
                 "Up/Down selects project - Right opens sessions - Delete archives - Escape closes"
@@ -6455,13 +6581,14 @@ class TauTuiApp(App[None]):
 
         try:
             records = await asyncio.to_thread(_session_records, self.session)
+            archived_records = await asyncio.to_thread(_archived_session_records, self.session)
         except Exception as exc:  # noqa: BLE001 - keep local sessions usable
             if self.screen is picker:
                 picker.finish_loading()
                 self._notify(f"Could not load other projects: {exc}", severity="warning")
             return
         if await self._wait_for_open_session_picker(picker):
-            picker.update_records(records)
+            picker.update_records(records, archived_records=archived_records)
 
     async def _wait_for_open_session_picker(self, picker: SessionPickerScreen) -> bool:
         """Wait until this picker is mounted, or report that it was closed."""
@@ -6634,6 +6761,40 @@ class TauTuiApp(App[None]):
         if archived:
             await picker._remove_records(cwd)
             self._notify(f"Archived project: {_short_path(Path(cwd))}")
+
+    async def _unarchive_session_record(
+        self, record: SessionCompletionRecord, picker: SessionPickerScreen
+    ) -> None:
+        """Persist a session restore and update the open picker."""
+        manager = self.session.session_manager
+        unarchive = getattr(manager, "unarchive_session", None)
+        if not callable(unarchive):
+            self._notify("This session manager does not support restoring.", severity="warning")
+            return
+        try:
+            restored = await asyncio.to_thread(unarchive, record.id)
+        except Exception as exc:  # noqa: BLE001 - surface filesystem failures in the TUI
+            self._notify(f"Could not restore session: {exc}", severity="error")
+            return
+        if restored:
+            await picker._restore_records(record.cwd, record.id)
+            self._notify(f"Restored session: {record.id}")
+
+    async def _unarchive_session_project(self, cwd: Path, picker: SessionPickerScreen) -> None:
+        """Persist a project restore and update the open picker."""
+        manager = self.session.session_manager
+        unarchive = getattr(manager, "unarchive_project", None)
+        if not callable(unarchive):
+            self._notify("This session manager does not support restoring.", severity="warning")
+            return
+        try:
+            restored = await asyncio.to_thread(unarchive, cwd)
+        except Exception as exc:  # noqa: BLE001 - surface filesystem failures in the TUI
+            self._notify(f"Could not restore project: {exc}", severity="error")
+            return
+        if restored:
+            await picker._restore_records(cwd)
+            self._notify(f"Restored project: {_short_path(Path(cwd))}")
 
     async def _resume_session(self, session_id: str) -> None:
         try:
@@ -7826,6 +7987,15 @@ def _local_session_records(session: CodingSession) -> tuple[SessionCompletionRec
         records = manager.list_sessions()
     local_cwd = Path(session.cwd).resolve()
     return tuple(record for record in records if Path(record.cwd).resolve() == local_cwd)
+
+
+def _archived_session_records(session: CodingSession) -> tuple[SessionCompletionRecord, ...]:
+    """Return archived session metadata for the picker's archived tab."""
+    manager = getattr(session, "session_manager", None)
+    list_archived = getattr(manager, "list_archived_sessions", None)
+    if not callable(list_archived):
+        return ()
+    return tuple(list_archived())
 
 
 def _session_records(session: CodingSession) -> tuple[SessionCompletionRecord, ...]:

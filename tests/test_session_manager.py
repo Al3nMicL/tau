@@ -315,9 +315,14 @@ def test_session_manager_archives_session_without_deleting_transcript(tmp_path: 
     assert manager.archive_session(record.id) is True
     assert manager.get_session(record.id) is None
     assert manager.list_sessions() == []
+    assert manager.list_archived_sessions() == [record]
     assert record.path.read_text(encoding="utf-8") == "conversation\n"
     assert cwd.exists()
     assert manager.archive_session(record.id) is False
+    assert manager.unarchive_session(record.id) is True
+    assert manager.list_sessions() == [record]
+    assert manager.list_archived_sessions() == []
+    assert manager.unarchive_session(record.id) is False
 
 
 def test_session_manager_archives_project_without_deleting_transcripts(tmp_path: Path) -> None:
@@ -334,10 +339,15 @@ def test_session_manager_archives_project_without_deleting_transcripts(tmp_path:
 
     assert manager.archive_project(cwd) is True
     assert manager.list_sessions() == [other]
+    assert {record.id for record in manager.list_archived_sessions()} == {"first", "second"}
     assert first.path.read_text(encoding="utf-8") == "first"
     assert second.path.read_text(encoding="utf-8") == "second"
     assert cwd.exists()
     assert manager.archive_project(cwd) is False
+    assert manager.unarchive_project(cwd) is True
+    assert {record.id for record in manager.list_sessions()} == {"first", "second", "other"}
+    assert manager.list_archived_sessions() == []
+    assert manager.unarchive_project(cwd) is False
 
 
 def test_session_manager_sorts_newest_updated_first(tmp_path: Path) -> None:

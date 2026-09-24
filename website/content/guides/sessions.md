@@ -38,9 +38,11 @@ other project indexes load in the background. Press
 **Left** to move to the project column, use **Up/Down** to choose another
 project, then press **Right** to return to its sessions. Press **Enter** (or
 click) to resume one. Press **Delete** to archive the highlighted session. When
-the project column is active, **Delete** archives that whole project. Archived
-items disappear from the picker immediately; their session files and project
-directories are not deleted.
+the project column is active, **Delete** archives that whole project. Choose
+the **Archived** tab above the picker to review archived projects and sessions;
+press **Enter** on an archived session to restore it, or on an archived project
+to restore all of its sessions. Restored items return to the **Active** tab.
+Archiving never deletes session files or project directories.
 
 The search field filters session names and models within the selected project.
 
